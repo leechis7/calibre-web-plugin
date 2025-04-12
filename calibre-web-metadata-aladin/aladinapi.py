@@ -48,7 +48,7 @@ class AladinAPI(Metadata):
         "&output=js"
         "&Version=20131101"
         "&Query="
-    ) 
+    )
     SEARCH_F_URL = (
         "https://www.aladin.co.kr/ttb/api/ItemSearch.aspx"
         f"?ttbkey={TTB_KEY}"
@@ -62,9 +62,9 @@ class AladinAPI(Metadata):
     )
 
     def search(
-        self, query: str, generic_cover: str = "", locale: str = "en"
+        self, query: str, generic_cover: str = "", locale: str = "ko"
     ) -> Optional[List[MetaRecord]]:
-        val = list()    
+        val = list()
         if self.active:
 
             title_tokens = list(self.get_title_tokens(query, strip_joiners=False))
@@ -82,7 +82,10 @@ class AladinAPI(Metadata):
             for result in results.json().get("item", []):
                 val.append(
                     self._parse_search_result(
-                        result=result, generic_cover=generic_cover, locale="ko"
+                        result=result,
+                        generic_cover=generic_cover,
+                        locale="ko",
+                        lang="kor",
                     )
                 )
             # 외국도서
@@ -95,13 +98,16 @@ class AladinAPI(Metadata):
             for result in results.json().get("item", []):
                 val.append(
                     self._parse_search_result(
-                        result=result, generic_cover=generic_cover, locale="en"
+                        result=result,
+                        generic_cover=generic_cover,
+                        locale="ko",
+                        lang="eng",
                     )
                 )
         return val
 
     def _parse_search_result(
-        self, result: Dict, generic_cover: str, locale: str
+        self, result: Dict, generic_cover: str, locale: str, lang: str = "kor"
     ) -> MetaRecord:
         match = MetaRecord(
             id=result["itemId"],
@@ -117,7 +123,7 @@ class AladinAPI(Metadata):
 
         match.cover = self._parse_cover(result=result, generic_cover=generic_cover)
         match.description = result["description"]
-        match.languages = self._parse_languages(result=result, locale=locale)
+        match.languages = lang  # self._parse_languages(result=result, locale=locale)
         match.publisher = result["publisher"]
         try:
             datetime.strptime(result["pubDate"], "%Y-%m-%d")
@@ -126,10 +132,13 @@ class AladinAPI(Metadata):
             match.publishedDate = ""
         match.rating = result["customerReviewRank"]
         try:
-        	match.series, match.series_index = result["seriesInfo"].get("seriesName", ""), 1
+            match.series, match.series_index = (
+                result["seriesInfo"].get("seriesName", ""),
+                1,
+            )
         except Exception as e:
-             match.series, match.series_index = "", 1 
-        match.tags = [item.strip() for item in result["categoryName"].split(",")],
+            match.series, match.series_index = "", 1
+        match.tags = ([item.strip() for item in result["categoryName"].split(",")],)
 
         match.identifiers = {"aladin.co.kr": match.id}
         match.identifiers["isbn"] = result["isbn13"]
@@ -138,13 +147,13 @@ class AladinAPI(Metadata):
     @staticmethod
     def _parse_cover(result: Dict, generic_cover: str) -> str:
         if result["cover"]:
-            cover_url = result["cover"].replace("coversum","cover500")
+            cover_url = result["cover"].replace("coversum", "cover500")
             return cover_url
         return generic_cover
 
     @staticmethod
     def _parse_languages(result: Dict, locale: str) -> List[str]:
-        language_iso2 = locale 
+        language_iso2 = locale
         languages = (
             [get_language_name(locale, get_lang3(language_iso2))]
             if language_iso2
